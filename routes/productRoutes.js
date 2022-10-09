@@ -3,33 +3,9 @@ const router = express.Router();
 const Product = require("../models/productModel");
 const Category = require("../models/categoryModel");
 const mongoose = require("mongoose");
-const multer = require("multer");
+
 const cloudinary = require("../utils/cloudinary");
-
-// const FILE_TYPE_MAP = {
-//   "image/png": "png",
-//   "image/jpeg": "jpeg",
-//   "image/jpg": "jpg",
-// };
-
-// const storage = multer.diskStorage({
-//   destination: function (req, file, cb) {
-//     const isValid = FILE_TYPE_MAP[file.mimetype];
-//     let uploadError = new Error("invalid image type");
-
-//     if (isValid) {
-//       uploadError = null;
-//     }
-//     cb(uploadError, "public/uploads");
-//   },
-//   filename: function (req, file, cb) {
-//     const fileName = file.originalname.split(" ").join("-");
-//     // const extension = FILE_TYPE_MAP[file.mimetype];
-//     cb(null, `${Date.now()}-${fileName}`);
-//   },
-// });
-
-// const uploadOptions = multer({ storage: storage });
+const upload = require("../utils/multer");
 
 router.get(`/`, async (req, res) => {
   let filter = {};
@@ -54,37 +30,41 @@ router.get(`/:id`, async (req, res) => {
   res.send(product);
 });
 
-router.post(`/`, async (req, res) => {
+router.post(`/`, upload.single("productImage"), async (req, res) => {
   const category = await Category.findById(req.body.category);
   if (!category) return res.status(400).send("Invalid Category");
 
-  const image = req.file;
+  console.log(req.body.name);
+
+  const image = req.file.path;
   if (!image) return res.status(400).send("No image in the request");
 
-  // const fileName = file.filename;
-  // const basePath = `${req.protocol}://${req.get("host")}/public/uploads/`;
+  try {
+    const uploadedResponse = await cloudinary.uploader.upload(image, {
+      upload_preset: "products",
+    });
 
-  const uploadedResponse = await cloudinary.uploader.upload(image, {
-    upload_preset: "products",
-  });
+    let product = new Product({
+      name: req.body.name,
+      shortDescription: req.body.shortDescription,
+      longDescription: req.body.longDescription,
+      productImage: uploadedResponse,
+      brand: req.body.brand,
+      price: req.body.price,
+      category: req.body.category,
+      quantityInStock: req.body.quantityInStock,
+      isFeatured: req.body.isFeatured,
+    });
 
-  let product = new Product({
-    name: req.body.name,
-    shortDescription: req.body.shortDescription,
-    longDescription: req.body.longDescription,
-    productImage: uploadedResponse,
-    brand: req.body.brand,
-    price: req.body.price,
-    category: req.body.category,
-    quantityInStock: req.body.quantityInStock,
-    isFeatured: req.body.isFeatured,
-  });
+    product = await product.save();
 
-  product = await product.save();
+    if (!product) return res.status(500).send("The product cannot be created");
 
-  if (!product) return res.status(500).send("The product cannot be created");
-
-  res.send(product);
+    res.send(product);
+  } catch (error) {
+    console.log(error);
+    res.status(500).send(error);
+  }
 });
 
 router.put("/:id", async (req, res) => {

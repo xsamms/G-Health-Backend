@@ -31,7 +31,7 @@ const server = http.createServer(app);
 socketServer.registerSocketServer(server);
 
 mongoose
-  .connect(process.env.MONGODB_URI)
+  .connect(process.env.MONGO_URI)
   .then(() => {
     server.listen(PORT, () => {
       console.log(`Server is listening on Port: ${PORT}`);
